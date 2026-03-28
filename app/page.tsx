@@ -294,6 +294,16 @@ function IconChevronRight() {
   );
 }
 
+function IconPrinter() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
+
 function IconLoader() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
@@ -425,7 +435,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-white rounded-lg border border-gray-100 shadow-sm p-4 ${className}`}>
+    <div className={`print-card bg-white rounded-lg border border-gray-100 shadow-sm p-4 ${className}`}>
       {children}
     </div>
   );
@@ -1092,16 +1102,48 @@ export default function Page() {
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="print-scroll flex-1 overflow-y-auto px-6 py-6 print-content">
+          {/* Print-only header */}
+          {result && (
+            <div className="print-header hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded bg-[#E8453C] flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">KW</span>
+                  </div>
+                  <span className="font-semibold text-sm text-gray-900">KW Market Intelligence Platform</span>
+                </div>
+                <span className="font-mono text-xs text-gray-400">
+                  {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  {' · '}KW Internal — Confidential
+                </span>
+              </div>
+            </div>
+          )}
+
           {error && (
-            <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="no-print mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="font-mono text-xs text-red-400 uppercase tracking-wider mb-1">Error</div>
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
           {loading && <LoadingState module={activeModule} />}
           {!loading && !result && !error && <EmptyState module={activeModule} />}
-          {!loading && result && renderResult()}
+          {!loading && result && (
+            <>
+              {/* Export button */}
+              <div className="no-print flex justify-end mb-4">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                >
+                  <IconPrinter />
+                  Export PDF
+                </button>
+              </div>
+              {renderResult()}
+            </>
+          )}
         </div>
       </main>
     </div>

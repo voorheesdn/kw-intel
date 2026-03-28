@@ -12,3 +12,43 @@ body {
   margin: 0;
   padding: 0;
 }
+
+@media print {
+  /* Hide chrome */
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Unlock scroll constraints */
+  html,
+  body,
+  main,
+  .print-scroll {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Full width results */
+  .print-content {
+    padding: 0 !important;
+  }
+
+  /* Clean cards */
+  .shadow-sm {
+    box-shadow: none !important;
+  }
+
+  /* Avoid breaking cards across pages */
+  .print-card {
+    break-inside: avoid;
+  }
+
+  /* Print header */
+  .print-header {
+    display: block !important;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #1A1A1A;
+  }
+}
