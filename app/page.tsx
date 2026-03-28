@@ -112,18 +112,21 @@ const MODULE_QUERIES: Record<ModuleType, (input: string) => string> = {
     `Produce an executive intelligence briefing on "${input}" for the VP of Product & Innovation at Keller Williams. Use web search for current intelligence. Return JSON: {"title": string, "date": string, "classification": "KW Internal — Confidential", "executiveSummary": string, "materialDevelopments": [{"development": string, "detail": string, "source": string, "materialityScore": number, "recommendedResponse": string}], "competitiveLandscape": string, "partnershipPipeline": string, "risksAndThreats": [{"risk": string, "detail": string, "likelihood": "high"|"medium"|"low", "impact": "high"|"medium"|"low"}], "recommendedAgenda": [string], "nextBriefingFocus": string}`,
 };
 
-const QUICK_TARGETS = [
-  'Follow Up Boss',
-  'kvCORE / Inside Real Estate',
-  'Sierra Interactive',
-  'Lofty',
-  'BoomTown',
-  'LionDesk',
-  'Wise Agent',
-  'Realvolve',
-  'Propertybase',
-  'Rechat',
-  'Side',
+const QUICK_TARGETS: { label: string; group: string }[] = [
+  { label: 'eXp Realty', group: 'Brokerages' },
+  { label: 'Compass', group: 'Brokerages' },
+  { label: 'REAL Broker', group: 'Brokerages' },
+  { label: 'Follow Up Boss', group: 'CRM / Tech' },
+  { label: 'kvCORE / Inside Real Estate', group: 'CRM / Tech' },
+  { label: 'Sierra Interactive', group: 'CRM / Tech' },
+  { label: 'Lofty', group: 'CRM / Tech' },
+  { label: 'BoomTown', group: 'CRM / Tech' },
+  { label: 'LionDesk', group: 'CRM / Tech' },
+  { label: 'Wise Agent', group: 'CRM / Tech' },
+  { label: 'Realvolve', group: 'CRM / Tech' },
+  { label: 'Propertybase', group: 'CRM / Tech' },
+  { label: 'Rechat', group: 'CRM / Tech' },
+  { label: 'Side', group: 'CRM / Tech' },
 ];
 
 const MODULE_CONFIG: Record<ModuleType, { label: string; placeholder: string; description: string }> = {
@@ -885,20 +888,25 @@ export default function Page() {
         {/* Quick Targets */}
         <div className="px-3 py-2 border-t border-white/10">
           <div className="font-mono text-xs text-white/30 uppercase tracking-widest px-2 mb-2">Quick Targets</div>
-          {QUICK_TARGETS.map((target) => (
-            <button
-              key={target}
-              onClick={() => handleQuickTarget(target)}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors group"
-            >
-              <span className="text-white/20 group-hover:text-white/40 shrink-0">
-                <IconTarget />
-              </span>
-              <span className="text-xs truncate flex-1">{target}</span>
-              <span className="text-white/20 group-hover:text-white/40 shrink-0">
-                <IconChevronRight />
-              </span>
-            </button>
+          {(['Brokerages', 'CRM / Tech'] as const).map((group) => (
+            <div key={group} className="mb-1">
+              <div className="font-mono text-xs text-white/20 uppercase tracking-widest px-2 py-1">{group}</div>
+              {QUICK_TARGETS.filter((t) => t.group === group).map((target) => (
+                <button
+                  key={target.label}
+                  onClick={() => handleQuickTarget(target.label)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors group"
+                >
+                  <span className="text-white/20 group-hover:text-white/40 shrink-0">
+                    <IconTarget />
+                  </span>
+                  <span className="text-xs truncate flex-1">{target.label}</span>
+                  <span className="text-white/20 group-hover:text-white/40 shrink-0">
+                    <IconChevronRight />
+                  </span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       </aside>
