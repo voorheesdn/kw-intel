@@ -73,8 +73,8 @@ export function formatFredValue(value: string | number, series: FredSeries): str
       // FRED returns values already in thousands (e.g., 1487 = 1,487 thousand units)
       return num >= 1000 ? `${(num / 1000).toFixed(2)}M` : `${num.toLocaleString()}K`;
     case 'millions':
-      // FRED returns values already in millions (e.g., 4.09 = 4.09 million units)
-      return `${num.toFixed(2)}M`;
+      // FRED may return raw counts (e.g., 4090000) — convert to millions for display
+      return num >= 100_000 ? `${(num / 1_000_000).toFixed(2)}M` : `${num.toFixed(2)}M`;
     case 'number':
       return num.toLocaleString();
     default:
