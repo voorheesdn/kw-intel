@@ -4,11 +4,17 @@ import type { FredObservation } from '@/lib/fred';
 
 // ─── FRED enrichment ─────────────────────────────────────────────────────────
 
+// Baseline series always injected so the AI has market context for any query
+const BASELINE_SERIES = ['MORTGAGE30US', 'CSUSHPINSA', 'MSPUS', 'ACTLISCOUUS', 'FEDFUNDS', 'UNRATE'];
+
 async function fetchFredContext(query: string): Promise<string | null> {
   const fredKey = process.env.FRED_API_KEY;
   if (!fredKey) return null;
 
-  const relevantIds = getRelevantSeriesIds(query);
+  // Always include baseline + any query-specific series
+  const querySpecific = getRelevantSeriesIds(query);
+  const allIds = [...new Set([...BASELINE_SERIES, ...querySpecific])];
+  const relevantIds = allIds;
   if (relevantIds.length === 0) return null;
 
   try {

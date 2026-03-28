@@ -319,10 +319,28 @@ export default function MarketPage() {
 
         {/* Series Index */}
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          <div className="font-mono text-xs text-white/30 uppercase tracking-widest px-2 mb-3">Tracked Series</div>
-          {FRED_CATEGORIES.map(cat => (
+          <div className="font-mono text-xs text-white/30 uppercase tracking-widest px-2 mb-3">Real Estate</div>
+          {FRED_CATEGORIES.filter(c => ['mortgage', 'prices', 'supply', 'affordability'].includes(c.key)).map(cat => (
             <div key={cat.key} className="mb-3">
               <div className="font-mono text-xs text-white/20 uppercase tracking-widest px-2 py-1">{cat.label}</div>
+              {FRED_SERIES.filter(s => s.category === cat.key).map(s => {
+                const obs = seriesMap.get(s.id);
+                const latest = obs?.find(o => o.value !== '.');
+                return (
+                  <div key={s.id} className="flex items-center justify-between px-2 py-1.5 rounded text-white/50 hover:bg-white/5 transition-colors">
+                    <span className="text-xs truncate flex-1">{s.shortLabel}</span>
+                    <span className="font-mono text-xs text-white/70 shrink-0">
+                      {latest ? formatFredValue(latest.value, s) : '\u2014'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+
+          <div className="font-mono text-xs text-white/30 uppercase tracking-widest px-2 mb-3 mt-4 pt-3 border-t border-white/10">Economic</div>
+          {FRED_CATEGORIES.filter(c => c.key === 'economic').map(cat => (
+            <div key={cat.key} className="mb-3">
               {FRED_SERIES.filter(s => s.category === cat.key).map(s => {
                 const obs = seriesMap.get(s.id);
                 const latest = obs?.find(o => o.value !== '.');
@@ -380,58 +398,111 @@ export default function MarketPage() {
 
           {seriesMap.size > 0 && (
             <>
-              {/* Metric Cards by Category */}
-              {FRED_CATEGORIES.map(cat => {
-                const series = FRED_SERIES.filter(s => s.category === cat.key);
-                return (
-                  <div key={cat.key} className="mb-6">
-                    <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">{cat.label}</div>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      {series.map(s => (
-                        <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} />
-                      ))}
+              {/* ═══ REAL ESTATE MARKET ═══ */}
+              <div className="mb-10">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-1 h-5 bg-[#E8453C] rounded-full" />
+                  <h2 className="text-lg font-semibold text-gray-900">Real Estate Market</h2>
+                </div>
+
+                {/* RE Metric Cards */}
+                {FRED_CATEGORIES.filter(c => ['mortgage', 'prices', 'supply', 'affordability'].includes(c.key)).map(cat => {
+                  const series = FRED_SERIES.filter(s => s.category === cat.key);
+                  return (
+                    <div key={cat.key} className="mb-6">
+                      <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">{cat.label}</div>
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {series.map(s => (
+                          <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} />
+                        ))}
+                      </div>
                     </div>
+                  );
+                })}
+
+                {/* RE Charts */}
+                <div className="mt-6 space-y-6">
+                  <div className="font-mono text-xs text-gray-400 uppercase tracking-widest">Real Estate Trends</div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <ChartCard
+                      title="Mortgage Rates"
+                      seriesIds={['MORTGAGE30US', 'MORTGAGE15US']}
+                      seriesMap={seriesMap}
+                      range={range}
+                      onRangeChange={setRange}
+                      colors={[CHART_COLORS.red, CHART_COLORS.amber]}
+                    />
+                    <ChartCard
+                      title="Home Prices (Case-Shiller Index)"
+                      seriesIds={['CSUSHPINSA']}
+                      seriesMap={seriesMap}
+                      range={range}
+                      onRangeChange={setRange}
+                      colors={[CHART_COLORS.blue]}
+                    />
+                    <ChartCard
+                      title="Housing Supply"
+                      seriesIds={['ACTLISCOUUS', 'MSACSR']}
+                      seriesMap={seriesMap}
+                      range={range}
+                      onRangeChange={setRange}
+                      colors={[CHART_COLORS.teal, CHART_COLORS.amber]}
+                    />
+                    <ChartCard
+                      title="Affordability"
+                      seriesIds={['MDSP', 'TDSP']}
+                      seriesMap={seriesMap}
+                      range={range}
+                      onRangeChange={setRange}
+                      colors={[CHART_COLORS.red, CHART_COLORS.blue]}
+                    />
                   </div>
-                );
-              })}
+                </div>
+              </div>
 
-              {/* Charts */}
-              <div className="mt-8 space-y-6">
-                <div className="font-mono text-xs text-gray-400 uppercase tracking-widest">Trend Charts</div>
+              {/* ═══ ECONOMIC CONTEXT ═══ */}
+              <div className="mb-10 pt-8 border-t border-gray-200">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-1 h-5 bg-[#2D7DD2] rounded-full" />
+                  <h2 className="text-lg font-semibold text-gray-900">Economic Context</h2>
+                </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  <ChartCard
-                    title="Mortgage Rates"
-                    seriesIds={['MORTGAGE30US', 'MORTGAGE15US']}
-                    seriesMap={seriesMap}
-                    range={range}
-                    onRangeChange={setRange}
-                    colors={[CHART_COLORS.red, CHART_COLORS.amber]}
-                  />
-                  <ChartCard
-                    title="Home Prices (Case-Shiller Index)"
-                    seriesIds={['CSUSHPINSA']}
-                    seriesMap={seriesMap}
-                    range={range}
-                    onRangeChange={setRange}
-                    colors={[CHART_COLORS.blue]}
-                  />
-                  <ChartCard
-                    title="Housing Supply"
-                    seriesIds={['ACTLISCOUUS', 'MSACSR']}
-                    seriesMap={seriesMap}
-                    range={range}
-                    onRangeChange={setRange}
-                    colors={[CHART_COLORS.teal, CHART_COLORS.amber]}
-                  />
-                  <ChartCard
-                    title="Economic Dashboard"
-                    seriesIds={['FEDFUNDS', 'UNRATE']}
-                    seriesMap={seriesMap}
-                    range={range}
-                    onRangeChange={setRange}
-                    colors={[CHART_COLORS.red, CHART_COLORS.blue]}
-                  />
+                {/* Economic Metric Cards */}
+                {(() => {
+                  const series = FRED_SERIES.filter(s => s.category === 'economic');
+                  return (
+                    <div className="mb-6">
+                      <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">Macro Indicators</div>
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {series.map(s => (
+                          <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Economic Charts */}
+                <div className="mt-6 space-y-6">
+                  <div className="font-mono text-xs text-gray-400 uppercase tracking-widest">Economic Trends</div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <ChartCard
+                      title="Fed Funds Rate & Unemployment"
+                      seriesIds={['FEDFUNDS', 'UNRATE']}
+                      seriesMap={seriesMap}
+                      range={range}
+                      onRangeChange={setRange}
+                      colors={[CHART_COLORS.red, CHART_COLORS.blue]}
+                    />
+                    <ChartCard
+                      title="Consumer Sentiment"
+                      seriesIds={['UMCSENT']}
+                      seriesMap={seriesMap}
+                      range={range}
+                      onRangeChange={setRange}
+                      colors={[CHART_COLORS.teal]}
+                    />
+                  </div>
                 </div>
               </div>
 
