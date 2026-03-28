@@ -151,6 +151,21 @@ const MODULE_CONFIG: Record<ModuleType, { label: string; placeholder: string; de
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
+function stripCitations(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.replace(/<cite[^>]*>(.*?)<\/cite>/gs, '$1').trim();
+  }
+  if (Array.isArray(value)) {
+    return value.map(stripCitations);
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, stripCitations(v)])
+    );
+  }
+  return value;
+}
+
 function extractJSON(content: unknown[]): IntelData {
   const textBlocks = content
     .filter((b: unknown) => (b as { type: string }).type === 'text')
@@ -796,7 +811,7 @@ export default function Page() {
         throw new Error('Unexpected API response format');
       }
 
-      setResult(extractJSON(data.content));
+      setResult(stripCitations(extractJSON(data.content)) as IntelData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error');
     } finally {
