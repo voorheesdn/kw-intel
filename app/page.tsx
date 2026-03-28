@@ -950,10 +950,8 @@ export default function Page() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
           max_tokens: 2000,
           system: SYSTEM_PROMPTS[queryModule],
-          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
           messages: [{ role: 'user', content: MODULE_QUERIES[queryModule](queryInput) }],
         }),
       });
@@ -1088,8 +1086,8 @@ export default function Page() {
           </div>
           <p className="font-mono text-xs text-gray-400 mt-2">
             {MODULE_CONFIG[activeModule].description}
-            <span className="mx-1.5">·</span>claude-sonnet-4-20250514
-            <span className="mx-1.5">·</span>Web search enabled
+            <span className="mx-1.5">·</span>sonar-pro
+            <span className="mx-1.5">·</span>Real-time web search
           </p>
         </div>
 
