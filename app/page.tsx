@@ -7,7 +7,7 @@ import type {
 } from '@/lib/types';
 import { SYSTEM_PROMPTS, MODULE_QUERIES, MODULE_CONFIG, MODULES, QUICK_TARGETS, QUICK_TARGET_GROUPS } from '@/lib/constants';
 import { stripCitations, extractJSON } from '@/lib/utils';
-import { MODULE_ICONS, IconTarget, IconChevronRight, IconLoader, IconPrinter, IconCopy, IconSearch, IconBarChart } from '@/components/ui/Icons';
+import { MODULE_ICONS, IconTarget, IconChevronRight, IconLoader, IconPrinter, IconCopy, IconSearch, IconBarChart, IconHome } from '@/components/ui/Icons';
 import {
   SmartResult, CompetitorResult, BrokerageResult, PartnershipResult,
   MarketResult, BriefingResult, SentimentResult, FundingResult,
@@ -115,6 +115,9 @@ export default function Page() {
             </a>
             <a href="/market" className="text-white/40 text-xs font-medium hover:text-white/80 flex items-center gap-1">
               <IconBarChart /> Market Data
+            </a>
+            <a href="/listings" className="text-white/40 text-xs font-medium hover:text-white/80 flex items-center gap-1">
+              <IconHome /> Listings
             </a>
           </div>
         </div>
