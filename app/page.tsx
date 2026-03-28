@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ModuleType = 'competitor' | 'partnership' | 'market' | 'briefing';
+type ModuleType = 'competitor' | 'brokerage' | 'partnership' | 'market' | 'briefing';
 type ImpactLevel = 'high' | 'medium' | 'low';
 
 interface CompetitorData {
@@ -17,6 +17,28 @@ interface CompetitorData {
     date: string;
   }>;
   strengths: string[];
+  weaknesses: string[];
+  threatToKW: string;
+  opportunityForKW: string;
+  signalsToWatch: string[];
+  materialityScore: number;
+}
+
+interface BrokerageData {
+  brokerage: string;
+  summary: string;
+  agentCount: string;
+  growthTrajectory: string;
+  splitModel: string;
+  techStack: string;
+  recentMoves: Array<{
+    title: string;
+    detail: string;
+    impact: ImpactLevel;
+    date: string;
+  }>;
+  recruitingStrategy: string;
+  agentValueProps: string[];
   weaknesses: string[];
   threatToKW: string;
   opportunityForKW: string;
@@ -91,6 +113,8 @@ type IntelData = CompetitorData | PartnershipData | MarketData | BriefingData;
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SYSTEM_PROMPTS: Record<ModuleType, string> = {
+  brokerage:
+    "You are a competitive intelligence analyst specializing in real estate brokerage models. You work for Keller Williams' Agent Attraction and Product & Innovation teams. Your job is to profile competitor brokerages — focusing on their agent value proposition, growth trajectory, split and cap models, technology investments, and recruiting strategy as they compete with KW for agents. Respond ONLY with valid JSON (no markdown, no backticks, no preamble).",
   competitor:
     "You are a competitive intelligence analyst specializing in real estate technology. You work for Keller Williams' Product & Innovation team. Your job is to analyze a competitor and produce structured intelligence. You have deep knowledge of the real estate CRM and PropTech landscape. Respond ONLY with valid JSON (no markdown, no backticks, no preamble).",
   partnership:
@@ -102,6 +126,8 @@ const SYSTEM_PROMPTS: Record<ModuleType, string> = {
 };
 
 const MODULE_QUERIES: Record<ModuleType, (input: string) => string> = {
+  brokerage: (input) =>
+    `Profile "${input}" as a competitor brokerage to Keller Williams. Use web search to find current agent count, growth trajectory, split/cap model, technology stack, recruiting messaging, and recent strategic moves. Return structured JSON with this exact schema: {"brokerage": string, "summary": string, "agentCount": string, "growthTrajectory": string, "splitModel": string, "techStack": string, "recentMoves": [{"title": string, "detail": string, "impact": "high"|"medium"|"low", "date": string}], "recruitingStrategy": string, "agentValueProps": [string], "weaknesses": [string], "threatToKW": string, "opportunityForKW": string, "signalsToWatch": [string], "materialityScore": number}`,
   competitor: (input) =>
     `Analyze "${input}" as a competitor to Keller Williams in the real estate technology and CRM space. Use web search to find their latest product moves, pricing changes, funding rounds, partnerships, and agent adoption trends. Return structured JSON with this exact schema: {"competitor": string, "summary": string, "recentMoves": [{"title": string, "detail": string, "impact": "high"|"medium"|"low", "date": string}], "strengths": [string], "weaknesses": [string], "threatToKW": string, "opportunityForKW": string, "signalsToWatch": [string], "materialityScore": number}`,
   partnership: (input) =>
@@ -112,24 +138,28 @@ const MODULE_QUERIES: Record<ModuleType, (input: string) => string> = {
     `Produce an executive intelligence briefing on "${input}" for the VP of Product & Innovation at Keller Williams. Use web search for current intelligence. Return JSON: {"title": string, "date": string, "classification": "KW Internal — Confidential", "executiveSummary": string, "materialDevelopments": [{"development": string, "detail": string, "source": string, "materialityScore": number, "recommendedResponse": string}], "competitiveLandscape": string, "partnershipPipeline": string, "risksAndThreats": [{"risk": string, "detail": string, "likelihood": "high"|"medium"|"low", "impact": "high"|"medium"|"low"}], "recommendedAgenda": [string], "nextBriefingFocus": string}`,
 };
 
-const QUICK_TARGETS: { label: string; group: string }[] = [
-  { label: 'eXp Realty', group: 'Brokerages' },
-  { label: 'Compass', group: 'Brokerages' },
-  { label: 'REAL Broker', group: 'Brokerages' },
-  { label: 'Follow Up Boss', group: 'CRM / Tech' },
-  { label: 'kvCORE / Inside Real Estate', group: 'CRM / Tech' },
-  { label: 'Sierra Interactive', group: 'CRM / Tech' },
-  { label: 'Lofty', group: 'CRM / Tech' },
-  { label: 'BoomTown', group: 'CRM / Tech' },
-  { label: 'LionDesk', group: 'CRM / Tech' },
-  { label: 'Wise Agent', group: 'CRM / Tech' },
-  { label: 'Realvolve', group: 'CRM / Tech' },
-  { label: 'Propertybase', group: 'CRM / Tech' },
-  { label: 'Rechat', group: 'CRM / Tech' },
-  { label: 'Side', group: 'CRM / Tech' },
+const QUICK_TARGETS: { label: string; group: string; module: ModuleType }[] = [
+  { label: 'eXp Realty', group: 'Brokerages', module: 'brokerage' },
+  { label: 'Compass', group: 'Brokerages', module: 'brokerage' },
+  { label: 'REAL Broker', group: 'Brokerages', module: 'brokerage' },
+  { label: 'Side', group: 'Brokerages', module: 'brokerage' },
+  { label: 'Follow Up Boss', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'kvCORE / Inside Real Estate', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Sierra Interactive', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Lofty', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Brivity', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Cloze', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Realvolve', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Propertybase', group: 'CRM / Tech', module: 'competitor' },
+  { label: 'Rechat', group: 'CRM / Tech', module: 'competitor' },
 ];
 
 const MODULE_CONFIG: Record<ModuleType, { label: string; placeholder: string; description: string }> = {
+  brokerage: {
+    label: 'Brokerage Intel',
+    placeholder: 'Enter brokerage name (e.g. eXp Realty)',
+    description: 'Agent value prop, splits, tech stack & recruiting strategy',
+  },
   competitor: {
     label: 'Competitor Intel',
     placeholder: 'Enter competitor name (e.g. Follow Up Boss)',
@@ -156,7 +186,7 @@ const MODULE_CONFIG: Record<ModuleType, { label: string; placeholder: string; de
 
 function stripCitations(value: unknown): unknown {
   if (typeof value === 'string') {
-    return value.replace(/<cite[^>]*>(.*?)<\/cite>/gs, '$1').trim();
+    return value.replace(/<cite[^>]*>([\s\S]*?)<\/cite>/g, '$1').trim();
   }
   if (Array.isArray(value)) {
     return value.map(stripCitations);
@@ -224,6 +254,17 @@ function IconTrendingUp() {
   );
 }
 
+function IconBuilding() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="15" rx="1" />
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+      <line x1="12" y1="12" x2="12" y2="12.01" />
+      <path d="M8 12h.01M16 12h.01M8 16h.01M16 16h.01M12 16h.01" />
+    </svg>
+  );
+}
+
 function IconFileText() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -262,6 +303,7 @@ function IconLoader() {
 }
 
 const MODULE_ICONS: Record<ModuleType, () => React.ReactElement> = {
+  brokerage: IconBuilding,
   competitor: IconShield,
   partnership: IconPuzzle,
   market: IconTrendingUp,
@@ -461,6 +503,116 @@ function CompetitorResult({ data }: { data: CompetitorData }) {
         <div>
           <SectionLabel>Strengths</SectionLabel>
           <Card><TagList items={data.strengths || []} variant="teal" /></Card>
+        </div>
+        <div>
+          <SectionLabel>Weaknesses</SectionLabel>
+          <Card><TagList items={data.weaknesses || []} variant="red" /></Card>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="border-l-2 border-l-red-400">
+          <SectionLabel>Threat to KW</SectionLabel>
+          <p className="text-sm text-gray-700 leading-relaxed">{data.threatToKW}</p>
+        </Card>
+        <Card className="border-l-2 border-l-teal-400">
+          <SectionLabel>Opportunity for KW</SectionLabel>
+          <p className="text-sm text-gray-700 leading-relaxed">{data.opportunityForKW}</p>
+        </Card>
+      </div>
+
+      {data.signalsToWatch?.length > 0 && (
+        <div>
+          <SectionLabel>Signals to Watch</SectionLabel>
+          <Card>
+            <ul className="space-y-2">
+              {data.signalsToWatch.map((s, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="text-amber-400 mt-0.5 shrink-0">◆</span>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BrokerageResult({ data }: { data: BrokerageData }) {
+  const score = Number(data.materialityScore) || 0;
+  const scoreColor = score >= 7 ? '#E8453C' : score >= 4 ? '#F4A261' : '#45B69C';
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900">{data.brokerage}</h2>
+          <p className="font-mono text-xs text-gray-400 mt-0.5 uppercase tracking-wider">Brokerage Intelligence Report</p>
+        </div>
+        <div className="text-right shrink-0">
+          <div className="font-mono text-xs text-gray-400 mb-1 uppercase tracking-wider">Materiality</div>
+          <div className="text-3xl font-bold leading-none" style={{ color: scoreColor }}>
+            {score}<span className="text-sm text-gray-400 font-normal">/10</span>
+          </div>
+          <div className="w-28 mt-2">
+            <MaterialityMeter score={score} />
+          </div>
+        </div>
+      </div>
+
+      <Card>
+        <SectionLabel>Summary</SectionLabel>
+        <p className="text-sm text-gray-700 leading-relaxed">{data.summary}</p>
+      </Card>
+
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <SectionLabel>Agent Count</SectionLabel>
+          <p className="text-lg font-semibold text-gray-900">{data.agentCount}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{data.growthTrajectory}</p>
+        </Card>
+        <Card>
+          <SectionLabel>Split / Cap Model</SectionLabel>
+          <p className="text-sm text-gray-700">{data.splitModel}</p>
+        </Card>
+        <Card>
+          <SectionLabel>Tech Stack</SectionLabel>
+          <p className="text-sm text-gray-700">{data.techStack}</p>
+        </Card>
+      </div>
+
+      <Card>
+        <SectionLabel>Recruiting Strategy</SectionLabel>
+        <p className="text-sm text-gray-700 leading-relaxed">{data.recruitingStrategy}</p>
+      </Card>
+
+      {data.recentMoves?.length > 0 && (
+        <div>
+          <SectionLabel>Recent Moves</SectionLabel>
+          <div className="space-y-2">
+            {data.recentMoves.map((move, i) => (
+              <Card key={i}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 mb-1">{move.title}</div>
+                    <p className="text-sm text-gray-600 leading-relaxed">{move.detail}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <ImpactBadge level={move.impact} />
+                    <span className="font-mono text-xs text-gray-400">{move.date}</span>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <SectionLabel>Agent Value Props</SectionLabel>
+          <Card><TagList items={data.agentValueProps || []} variant="teal" /></Card>
         </div>
         <div>
           <SectionLabel>Weaknesses</SectionLabel>
@@ -743,6 +895,7 @@ function BriefingResult({ data }: { data: BriefingData }) {
 
 function LoadingState({ module: mod }: { module: ModuleType }) {
   const labels: Record<ModuleType, string> = {
+    brokerage: 'Profiling brokerage',
     competitor: 'Profiling competitor',
     partnership: 'Scouting partnerships',
     market: 'Analyzing market trends',
@@ -772,7 +925,7 @@ function EmptyState({ module: mod }: { module: ModuleType }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const MODULES: ModuleType[] = ['competitor', 'partnership', 'market', 'briefing'];
+const MODULES: ModuleType[] = ['brokerage', 'competitor', 'partnership', 'market', 'briefing'];
 
 export default function Page() {
   const [activeModule, setActiveModule] = useState<ModuleType>('competitor');
@@ -822,10 +975,10 @@ export default function Page() {
     }
   };
 
-  const handleQuickTarget = (name: string) => {
-    setActiveModule('competitor');
-    setInput(name);
-    runIntel(name, 'competitor');
+  const handleQuickTarget = (label: string, module: ModuleType) => {
+    setActiveModule(module);
+    setInput(label);
+    runIntel(label, module);
   };
 
   const handleModuleChange = (mod: ModuleType) => {
@@ -838,6 +991,7 @@ export default function Page() {
   const renderResult = () => {
     if (!result) return null;
     switch (resultModule) {
+      case 'brokerage': return <BrokerageResult data={result as unknown as BrokerageData} />;
       case 'competitor': return <CompetitorResult data={result as CompetitorData} />;
       case 'partnership': return <PartnershipResult data={result as PartnershipData} />;
       case 'market': return <MarketResult data={result as MarketData} />;
@@ -894,7 +1048,7 @@ export default function Page() {
               {QUICK_TARGETS.filter((t) => t.group === group).map((target) => (
                 <button
                   key={target.label}
-                  onClick={() => handleQuickTarget(target.label)}
+                  onClick={() => handleQuickTarget(target.label, target.module)}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-white/50 hover:text-white/90 hover:bg-white/10 transition-colors group"
                 >
                   <span className="text-white/20 group-hover:text-white/40 shrink-0">
