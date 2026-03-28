@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ULSSearchRequest, ULSSearchResponse, ULSSearchFilters } from '@/lib/kw-listings';
 
-const TOKEN_URL = 'https://sts.devhub.kw.com/oauth/token';
+const TOKEN_URL = 'https://partners.api.kw.com/idp/token';
 const ULS_BASE = 'https://partners.api.kw.com/uls';
 
 // ─── Token cache (in-memory, reused across requests within the same serverless instance)
