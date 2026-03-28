@@ -7,6 +7,9 @@ import {
 import { FRED_SERIES, FRED_CATEGORIES, formatFredValue, computeChange } from '@/lib/fred';
 import type { FredSeries, FredObservation } from '@/lib/fred';
 import { IconSearch, IconBarChart, IconLoader } from '@/components/ui/Icons';
+import type { ULSListing } from '@/lib/kw-listings';
+import { toListingSummary } from '@/lib/kw-listings';
+import type { ListingSummary } from '@/lib/kw-listings';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -217,6 +220,15 @@ export default function MarketPage() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<TimeRange>('1Y');
 
+  // KW Listings state
+  const [listings, setListings] = useState<ListingSummary[]>([]);
+  const [listingsTotal, setListingsTotal] = useState<number>(0);
+  const [listingsLoading, setListingsLoading] = useState(false);
+  const [listingsError, setListingsError] = useState<string | null>(null);
+  const [listingsStub, setListingsStub] = useState(false);
+  const [listingsCity, setListingsCity] = useState('Austin');
+  const [listingsState, setListingsState] = useState('TX');
+
   const fetchAllSeries = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -238,7 +250,48 @@ export default function MarketPage() {
     }
   }, []);
 
+  const fetchListings = useCallback(async (city?: string, state?: string) => {
+    setListingsLoading(true);
+    setListingsError(null);
+    try {
+      const res = await fetch('/api/listings/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: {
+            filters: {
+              listingStatus: ['active'],
+              listingCategory: ['sale'],
+              ...(city ? { city } : {}),
+              ...(state ? { stateProv: state } : {}),
+              mustHavePhotos: true,
+            },
+          },
+          sort: { sortField: 'price', sortOrder: 'desc' },
+          pagination: { max: 12, offset: 0 },
+        }),
+      });
+      const json = await res.json();
+      if (json.stub) {
+        setListingsStub(true);
+        return;
+      }
+      if (!res.ok) throw new Error(json?.error?.message || 'Failed to fetch listings');
+      const mapped = (json.results || []).map((l: ULSListing) => toListingSummary(l));
+      setListings(mapped);
+      const total = typeof json.pagination?.total === 'object'
+        ? json.pagination.total.value
+        : json.pagination?.total || 0;
+      setListingsTotal(total);
+    } catch (err) {
+      setListingsError(err instanceof Error ? err.message : 'Failed to load listings');
+    } finally {
+      setListingsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { fetchAllSeries(); }, [fetchAllSeries]);
+  useEffect(() => { fetchListings(listingsCity, listingsState); }, [fetchListings, listingsCity, listingsState]);
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -382,19 +435,112 @@ export default function MarketPage() {
                 </div>
               </div>
 
-              {/* KW Listings Placeholder */}
+              {/* KW Listings */}
               <div className="mt-8 mb-4">
-                <div className="bg-white rounded-lg border border-dashed border-gray-300 p-6 text-center">
-                  <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-2">Coming Soon</div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">KW Listings Intelligence</h3>
-                  <p className="text-sm text-gray-500 max-w-lg mx-auto">
-                    Connect the KW Unified Listing Service API to unlock real-time listings analysis,
-                    CMA report generation, and market-level inventory snapshots. Credentials required.
-                  </p>
-                  <div className="mt-3 font-mono text-xs text-gray-400">
-                    API endpoint: partners.api.kw.com/uls &middot; Auth: OpenID Connect via sts.devhub.kw.com
+                <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">KW Listings Intelligence</div>
+
+                {listingsStub ? (
+                  <div className="bg-white rounded-lg border border-dashed border-gray-300 p-6 text-center">
+                    <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-2">Not Connected</div>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">KW Listings API</h3>
+                    <p className="text-sm text-gray-500 max-w-lg mx-auto">
+                      Add KW_ULS_CLIENT_ID and KW_ULS_CLIENT_SECRET to your environment variables to connect.
+                    </p>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Search Bar */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <input
+                        type="text"
+                        value={listingsCity}
+                        onChange={(e) => setListingsCity(e.target.value)}
+                        placeholder="City"
+                        className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2D7DD2] w-48"
+                      />
+                      <input
+                        type="text"
+                        value={listingsState}
+                        onChange={(e) => setListingsState(e.target.value)}
+                        placeholder="State"
+                        className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2D7DD2] w-20"
+                        maxLength={2}
+                      />
+                      <button
+                        onClick={() => fetchListings(listingsCity, listingsState)}
+                        disabled={listingsLoading}
+                        className="px-4 py-2 bg-[#E8453C] text-white text-sm font-semibold rounded-lg hover:bg-[#d0382f] disabled:opacity-40 transition-colors"
+                      >
+                        {listingsLoading ? 'Searching...' : 'Search'}
+                      </button>
+                      {listingsTotal > 0 && (
+                        <span className="font-mono text-xs text-gray-400">
+                          {listingsTotal.toLocaleString()} active listings
+                        </span>
+                      )}
+                    </div>
+
+                    {listingsError && (
+                      <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        {listingsError}
+                      </div>
+                    )}
+
+                    {listingsLoading && (
+                      <div className="flex items-center justify-center py-12 gap-2">
+                        <div className="text-[#2D7DD2]"><IconLoader /></div>
+                        <span className="font-mono text-sm text-gray-500">Loading listings...</span>
+                      </div>
+                    )}
+
+                    {!listingsLoading && listings.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {listings.map((l) => (
+                          <div key={l.id} className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+                            {l.photoUrl && (
+                              <div className="h-40 bg-gray-100 overflow-hidden">
+                                <img src={l.photoUrl} alt={l.address} className="w-full h-full object-cover" />
+                              </div>
+                            )}
+                            <div className="p-4">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-lg font-bold text-gray-900">
+                                  ${l.price.toLocaleString()}
+                                </span>
+                                <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${
+                                  l.status === 'active' ? 'bg-green-100 text-green-700' :
+                                  l.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>
+                                  {l.status}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 truncate">{l.address}</p>
+                              <p className="text-xs text-gray-400">{l.city}, {l.state} {l.zip}</p>
+                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                                <span>{l.beds} bd</span>
+                                <span>{l.baths} ba</span>
+                                {l.sqft > 0 && <span>{l.sqft.toLocaleString()} sqft</span>}
+                              </div>
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                                <span className="text-xs text-gray-400 truncate flex-1">{l.agentName || l.officeName}</span>
+                                {l.isKwListing && (
+                                  <span className="text-xs font-bold text-[#E8453C] shrink-0 ml-2">KW</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!listingsLoading && !listingsError && listings.length === 0 && !listingsStub && (
+                      <div className="bg-white rounded-lg border border-gray-100 p-8 text-center">
+                        <p className="text-sm text-gray-500">No listings found for {listingsCity}, {listingsState}</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </>
           )}
