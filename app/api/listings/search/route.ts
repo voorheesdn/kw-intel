@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ULSSearchRequest, ULSSearchResponse, ULSSearchFilters } from '@/lib/kw-listings';
 
-const TOKEN_URL = 'https://sts.devhub.kw.com/connect/token';
+const TOKEN_URL = 'https://sts.devhub.kw.com/oauth/token';
 const ULS_BASE = 'https://partners.api.kw.com/uls';
 
 // ─── Token cache (in-memory, reused across requests within the same serverless instance)
@@ -77,8 +77,11 @@ export async function POST(request: NextRequest) {
 
     if (!res.ok) {
       const err = await res.text();
+      const hint = res.status === 403
+        ? ' — Your client app may need syndication access provisioned in KW DevHub.'
+        : '';
       return NextResponse.json(
-        { error: { message: `ULS API error (${res.status}): ${err}` } },
+        { error: { message: `ULS API error (${res.status})${hint}`, detail: err } },
         { status: res.status }
       );
     }
