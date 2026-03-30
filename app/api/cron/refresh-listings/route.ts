@@ -5,9 +5,6 @@ import { searchAllListings } from '@/lib/kw-uls-client';
 // Add more markets here as needed
 const MARKETS = [
   { city: 'Austin', state: 'TX' },
-  { city: 'Dallas', state: 'TX' },
-  { city: 'Houston', state: 'TX' },
-  { city: 'San Antonio', state: 'TX' },
 ];
 
 export async function GET(request: NextRequest) {
@@ -35,7 +32,7 @@ export async function GET(request: NextRequest) {
       const [activeData, soldData] = await Promise.all([
         searchAllListings({
           query: {
-            filters: { listingStatus: ['active'], listingCategory: ['sale'], ...locationFilters },
+            filters: { listingStatus: ['active'], listingCategory: ['sale'], propertyType: ['residential'], ...locationFilters },
           },
           sort: { sortField: 'listingUpdateDate', sortOrder: 'desc' },
         }),
@@ -44,6 +41,7 @@ export async function GET(request: NextRequest) {
             filters: {
               listingStatusGranular: ['sold', 'closed'],
               listingCategory: ['sold'],
+              propertyType: ['residential'],
               closeDate: { min: ninetyDaysAgo },
               ...locationFilters,
             },

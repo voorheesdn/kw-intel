@@ -123,7 +123,7 @@ export default function ListingsPage() {
           body: JSON.stringify({
             fetchAll: true,
             query: {
-              filters: { listingStatus: ['active'], listingCategory: ['sale'], ...locationFilters },
+              filters: { listingStatus: ['active'], listingCategory: ['sale'], propertyType: ['residential'], ...locationFilters },
             },
             sort: { sortField: 'listingUpdateDate', sortOrder: 'desc' },
           }),
@@ -137,6 +137,7 @@ export default function ListingsPage() {
               filters: {
                 listingStatusGranular: ['sold', 'closed'],
                 listingCategory: ['sold'],
+                propertyType: ['residential'],
                 closeDate: { min: ninetyDaysAgo },
                 ...locationFilters,
               },

@@ -187,7 +187,7 @@ async function fetchListingsContext(query: string): Promise<string | null> {
     const [activeData, soldData] = await Promise.all([
       searchListings({
         query: {
-          filters: { listingStatus: ['active'], listingCategory: ['sale'], ...locationFilters },
+          filters: { listingStatus: ['active'], listingCategory: ['sale'], propertyType: ['residential'], ...locationFilters },
         },
         sort: { sortField: 'listingUpdateDate', sortOrder: 'desc' },
         pagination: { max: 50, offset: 0 },
@@ -197,6 +197,7 @@ async function fetchListingsContext(query: string): Promise<string | null> {
           filters: {
             listingStatusGranular: ['sold', 'closed'],
             listingCategory: ['sold'],
+            propertyType: ['residential'],
             closeDate: { min: ninetyDaysAgo },
             ...locationFilters,
           },

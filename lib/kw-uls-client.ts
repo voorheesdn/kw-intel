@@ -83,7 +83,7 @@ function getCacheKey(body: ULSSearchRequest): string {
 
 export async function searchAllListings(
   searchBody: ULSSearchRequest,
-  maxPages = 50, // safety cap: 50 pages × 100 = 5,000 listings max
+  maxPages = 200, // safety cap: 200 pages × 100 = 20,000 listings max
 ): Promise<ULSSearchResponse> {
   // Check cache first
   const cacheKey = getCacheKey(searchBody);
