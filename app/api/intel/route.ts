@@ -5,6 +5,8 @@ import { searchListings, buildMarketSnapshot, formatSnapshotForAI, buildClosedSa
 import { detectLocation } from '@/lib/detect-location';
 import { fetchCompetitorContext } from '@/lib/sec-edgar';
 import { fetchTavilyContext } from '@/lib/tavily';
+import { fetchCensusContext } from '@/lib/census';
+import { fetchGoogleTrendsContext } from '@/lib/google-trends';
 
 // ─── FRED enrichment ─────────────────────────────────────────────────────────
 
@@ -156,22 +158,28 @@ export async function POST(request: NextRequest) {
 
   // Extract user query for enrichment
   const userMessage = body.messages?.[0]?.content || '';
+  const detectedLoc = detectLocation(userMessage);
 
   // Fetch all enrichment sources in parallel
-  const [fredContext, listingsContext, competitorContext, tavilyContext] = await Promise.all([
+  const [fredContext, listingsContext, competitorContext, tavilyContext, censusContext, trendsContext] = await Promise.all([
     fetchFredContext(userMessage),
     fetchListingsContext(userMessage),
     fetchCompetitorContext(userMessage),
     fetchTavilyContext(userMessage),
+    fetchCensusContext(detectedLoc?.city, detectedLoc?.state),
+    fetchGoogleTrendsContext(detectedLoc?.city, detectedLoc?.state, userMessage),
   ]);
 
   // Inject enrichment data into the user message
   const enrichedMessages = body.messages ? [...body.messages] : [];
-  if ((fredContext || listingsContext || competitorContext || tavilyContext) && enrichedMessages.length > 0) {
+  const allContexts = [fredContext, listingsContext, competitorContext, tavilyContext, censusContext, trendsContext];
+  if (allContexts.some(c => c) && enrichedMessages.length > 0) {
     const contextParts: string[] = [];
     if (fredContext) contextParts.push(fredContext);
     if (listingsContext) contextParts.push(listingsContext);
     if (competitorContext) contextParts.push(competitorContext);
+    if (censusContext) contextParts.push(censusContext);
+    if (trendsContext) contextParts.push(trendsContext);
     if (tavilyContext) contextParts.push(tavilyContext);
 
     enrichedMessages[0] = {
