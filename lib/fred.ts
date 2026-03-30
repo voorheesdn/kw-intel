@@ -14,6 +14,7 @@ export const FRED_SERIES: FredSeries[] = [
   // Mortgage Rates
   { id: 'MORTGAGE30US', label: '30-Year Fixed Rate Mortgage Average', shortLabel: '30Y Mortgage', category: 'mortgage', unit: '%', frequency: 'weekly', format: 'percent' },
   { id: 'MORTGAGE15US', label: '15-Year Fixed Rate Mortgage Average', shortLabel: '15Y Mortgage', category: 'mortgage', unit: '%', frequency: 'weekly', format: 'percent' },
+  { id: 'DGS10', label: '10-Year Treasury Constant Maturity Rate', shortLabel: '10Y Treasury', category: 'mortgage', unit: '%', frequency: 'weekly', format: 'percent' },
   // Home Prices
   { id: 'CSUSHPINSA', label: 'S&P/Case-Shiller U.S. National Home Price Index', shortLabel: 'Case-Shiller Index', category: 'prices', unit: 'Index', frequency: 'monthly', format: 'index' },
   { id: 'MSPUS', label: 'Median Sales Price of Houses Sold', shortLabel: 'Median Price', category: 'prices', unit: '$', frequency: 'quarterly', format: 'currency' },
@@ -26,9 +27,9 @@ export const FRED_SERIES: FredSeries[] = [
   { id: 'NEWLISCOUUS', label: 'New Listing Count, US', shortLabel: 'New Listings', category: 'supply', unit: 'listings', frequency: 'monthly', format: 'number' },
   // Economic Indicators
   { id: 'FEDFUNDS', label: 'Federal Funds Effective Rate', shortLabel: 'Fed Rate', category: 'economic', unit: '%', frequency: 'monthly', format: 'percent' },
-  { id: 'CPIAUCSL', label: 'Consumer Price Index', shortLabel: 'CPI', category: 'economic', unit: 'Index', frequency: 'monthly', format: 'index' },
+  { id: 'CPIAUCSL', label: 'Consumer Price Index (CPI)', shortLabel: 'CPI', category: 'economic', unit: 'Index', frequency: 'monthly', format: 'index' },
   { id: 'UNRATE', label: 'Unemployment Rate', shortLabel: 'Unemployment', category: 'economic', unit: '%', frequency: 'monthly', format: 'percent' },
-  { id: 'GDP', label: 'Gross Domestic Product', shortLabel: 'GDP', category: 'economic', unit: '$B', frequency: 'quarterly', format: 'number' },
+  { id: 'A191RL1Q225SBEA', label: 'Real GDP Growth Rate (SAAR)', shortLabel: 'GDP Growth', category: 'economic', unit: '%', frequency: 'quarterly', format: 'percent' },
   { id: 'UMCSENT', label: 'Consumer Sentiment', shortLabel: 'Sentiment', category: 'economic', unit: 'Index', frequency: 'monthly', format: 'index' },
   { id: 'DSPIC96', label: 'Real Disposable Personal Income', shortLabel: 'Disp. Income', category: 'economic', unit: '$B', frequency: 'monthly', format: 'number' },
   // Affordability
@@ -100,6 +101,7 @@ export function computeChange(observations: FredObservation[]): { change: number
 const MARKET_KEYWORDS: Record<string, string[]> = {
   MORTGAGE30US: ['mortgage', 'rate', 'interest', 'financing', 'lending', 'affordability', '30-year', '30 year'],
   MORTGAGE15US: ['mortgage', '15-year', '15 year'],
+  DGS10: ['treasury', '10-year', '10 year', 'bond', 'yield'],
   CSUSHPINSA: ['home price', 'house price', 'appreciation', 'case-shiller', 'case shiller', 'home value'],
   MSPUS: ['median price', 'home price', 'house price', 'sales price'],
   HOUST: ['housing start', 'new construction', 'homebuilding', 'builder'],
@@ -111,7 +113,7 @@ const MARKET_KEYWORDS: Record<string, string[]> = {
   FEDFUNDS: ['fed', 'federal funds', 'interest rate', 'monetary policy', 'fed rate'],
   CPIAUCSL: ['inflation', 'cpi', 'consumer price', 'price index'],
   UNRATE: ['unemployment', 'jobs', 'employment', 'labor'],
-  GDP: ['gdp', 'gross domestic', 'economic growth', 'economy'],
+  A191RL1Q225SBEA: ['gdp', 'gross domestic', 'economic growth', 'economy'],
   UMCSENT: ['consumer sentiment', 'confidence', 'sentiment'],
   DSPIC96: ['disposable income', 'personal income', 'income'],
   MDSP: ['mortgage burden', 'debt service', 'affordability', 'mortgage payment'],

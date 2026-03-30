@@ -11,7 +11,7 @@ import { fetchGoogleTrendsContext } from '@/lib/google-trends';
 // ─── FRED enrichment ─────────────────────────────────────────────────────────
 
 // Baseline series always injected so the AI has market context for any query
-const BASELINE_SERIES = ['MORTGAGE30US', 'CSUSHPINSA', 'MSPUS', 'ACTLISCOUUS', 'FEDFUNDS', 'UNRATE'];
+const BASELINE_SERIES = ['MORTGAGE30US', 'DGS10', 'CSUSHPINSA', 'MSPUS', 'ACTLISCOUUS', 'FEDFUNDS', 'UNRATE', 'CPIAUCSL', 'A191RL1Q225SBEA'];
 
 async function fetchFredContext(query: string): Promise<string | null> {
   const fredKey = process.env.FRED_API_KEY;
@@ -26,7 +26,9 @@ async function fetchFredContext(query: string): Promise<string | null> {
   try {
     const results = await Promise.all(
       relevantIds.map(async (seriesId) => {
-        const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${fredKey}&file_type=json&sort_order=desc&limit=6`;
+        // Pull 15 observations for CPI (need 12-month-ago value for YoY), 6 for everything else
+        const limit = seriesId === 'CPIAUCSL' ? 15 : 6;
+        const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${fredKey}&file_type=json&sort_order=desc&limit=${limit}`;
         const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
@@ -45,6 +47,40 @@ async function fetchFredContext(query: string): Promise<string | null> {
       if (valid.length === 0) continue;
 
       const latest = valid[0];
+
+      // CPI: show as YoY % change instead of raw index
+      if (result.seriesId === 'CPIAUCSL' && valid.length >= 13) {
+        const currentCPI = parseFloat(latest.value);
+        const yearAgoCPI = parseFloat(valid[12].value);
+        if (!isNaN(currentCPI) && !isNaN(yearAgoCPI) && yearAgoCPI > 0) {
+          const yoyChange = ((currentCPI - yearAgoCPI) / yearAgoCPI) * 100;
+          lines.push(`- CPI Inflation (YoY): ${yoyChange.toFixed(1)}% (as of ${latest.date})`);
+          // Also show prior month's YoY for trend
+          if (valid.length >= 14) {
+            const priorCPI = parseFloat(valid[1].value);
+            const priorYearAgoCPI = parseFloat(valid[13].value);
+            if (!isNaN(priorCPI) && !isNaN(priorYearAgoCPI) && priorYearAgoCPI > 0) {
+              const priorYoY = ((priorCPI - priorYearAgoCPI) / priorYearAgoCPI) * 100;
+              lines.push(`  Prior month YoY: ${priorYoY.toFixed(1)}%`);
+            }
+          }
+        }
+        continue;
+      }
+
+      // GDP SAAR: already formatted as % growth rate
+      if (result.seriesId === 'A191RL1Q225SBEA') {
+        const gdpRate = parseFloat(latest.value);
+        if (!isNaN(gdpRate)) {
+          lines.push(`- Real GDP Growth (SAAR): ${gdpRate.toFixed(1)}% (as of ${latest.date})`);
+          if (valid.length >= 2) {
+            lines.push(`  Prior quarter: ${parseFloat(valid[1].value).toFixed(1)}% (${valid[1].date})`);
+          }
+        }
+        continue;
+      }
+
+      // Default formatting for all other series
       const formatted = formatFredValue(latest.value, series);
       lines.push(`- ${series.label}: ${formatted} (as of ${latest.date})`);
 
