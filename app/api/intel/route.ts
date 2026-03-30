@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRelevantSeriesIds, FRED_SERIES, formatFredValue } from '@/lib/fred';
 import type { FredObservation } from '@/lib/fred';
-import { searchListings, buildMarketSnapshot, formatSnapshotForAI } from '@/lib/kw-uls-client';
+import { searchListings, buildMarketSnapshot, formatSnapshotForAI, buildClosedSalesSnapshot, formatClosedSalesForAI } from '@/lib/kw-uls-client';
 
 // ─── FRED enrichment ─────────────────────────────────────────────────────────
 
@@ -174,28 +174,61 @@ async function fetchListingsContext(query: string): Promise<string | null> {
   const location = detectLocation(query);
   if (!location) return null;
 
+  const locationFilters = {
+    ...(location.city ? { city: location.city } : {}),
+    ...(location.state ? { stateProv: location.state } : {}),
+  };
+
+  // 90 days ago for closed sales
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
   try {
-    const data = await searchListings({
-      query: {
-        filters: {
-          listingStatus: ['active'],
-          listingCategory: ['sale'],
-          ...(location.city ? { city: location.city } : {}),
-          ...(location.state ? { stateProv: location.state } : {}),
+    // Fetch active + closed in parallel
+    const [activeData, soldData] = await Promise.all([
+      searchListings({
+        query: {
+          filters: { listingStatus: ['active'], listingCategory: ['sale'], ...locationFilters },
         },
-      },
-      sort: { sortField: 'price', sortOrder: 'desc' },
-      pagination: { max: 50, offset: 0 },
-    });
+        sort: { sortField: 'listingUpdateDate', sortOrder: 'desc' },
+        pagination: { max: 50, offset: 0 },
+      }),
+      searchListings({
+        query: {
+          filters: {
+            listingStatusGranular: ['sold', 'closed'],
+            listingCategory: ['sold'],
+            closeDate: { min: ninetyDaysAgo },
+            ...locationFilters,
+          },
+        },
+        sort: { sortField: 'closeDate', sortOrder: 'desc' },
+        pagination: { max: 50, offset: 0 },
+      }).catch(() => null), // Don't fail if closed sales query errors
+    ]);
 
-    const totalCount = typeof data.pagination?.total === 'object'
-      ? (data.pagination.total as { value: number }).value
-      : (data.pagination?.total as number) || data.results?.length || 0;
+    const parts: string[] = [];
 
-    if (!data.results || data.results.length === 0) return null;
+    // Active listings snapshot
+    const activeTotal = typeof activeData.pagination?.total === 'object'
+      ? (activeData.pagination.total as { value: number }).value
+      : (activeData.pagination?.total as number) || activeData.results?.length || 0;
 
-    const snapshot = buildMarketSnapshot(location.area, data.results, totalCount);
-    return formatSnapshotForAI(snapshot);
+    if (activeData.results && activeData.results.length > 0) {
+      const snapshot = buildMarketSnapshot(location.area, activeData.results, activeTotal);
+      parts.push(formatSnapshotForAI(snapshot));
+    }
+
+    // Closed sales snapshot
+    if (soldData && soldData.results && soldData.results.length > 0) {
+      const soldTotal = typeof soldData.pagination?.total === 'object'
+        ? (soldData.pagination.total as { value: number }).value
+        : (soldData.pagination?.total as number) || soldData.results?.length || 0;
+
+      const closedSnapshot = buildClosedSalesSnapshot(location.area, soldData.results, soldTotal, activeTotal);
+      parts.push(formatClosedSalesForAI(closedSnapshot));
+    }
+
+    return parts.length > 0 ? parts.join('\n\n') : null;
   } catch (err) {
     console.error('KW Listings enrichment error:', err);
     return null;

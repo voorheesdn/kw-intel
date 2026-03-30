@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import {
-  BarChart, Bar, PieChart, Pie, Cell,
+  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { IconSearch, IconBarChart, IconHome, IconLoader } from '@/components/ui/Icons';
@@ -142,6 +142,93 @@ function computeStats(listings: ListingSummary[], totalCount: number): MarketSta
   };
 }
 
+// ─── Closed Sales Stats ─────────────────────────────────────────────────────
+
+interface ClosedStats {
+  totalSold: number;
+  medianSoldPrice: number;
+  avgSoldPriceSqft: number;
+  avgSoldToListRatio: number;
+  avgDaysToClose: number;
+  absorptionRate: number | null;
+  soldPriceDistribution: { name: string; count: number }[];
+  monthlyTrends: { month: string; count: number; medianPrice: number; avgPriceSqft: number }[];
+}
+
+function computeClosedStats(listings: ListingSummary[], totalSoldCount: number, totalActiveCount: number): ClosedStats {
+  const soldPrices = listings
+    .map(l => l.closePrice > 0 ? l.closePrice : l.price)
+    .filter(p => p > 0)
+    .sort((a, b) => a - b);
+
+  const soldPriceSqfts = listings
+    .filter(l => (l.closePrice || l.price) > 0 && l.sqft > 0)
+    .map(l => (l.closePrice > 0 ? l.closePrice : l.price) / l.sqft);
+
+  const soldToListRatios = listings
+    .filter(l => l.closePrice > 0 && l.originalListPrice > 0)
+    .map(l => l.closePrice / l.originalListPrice);
+
+  const daysToClose = listings
+    .filter(l => l.listDate && l.closeDate)
+    .map(l => {
+      const days = Math.floor((new Date(l.closeDate).getTime() - new Date(l.listDate).getTime()) / 86400000);
+      return days >= 0 && days < 730 ? days : null;
+    })
+    .filter((d): d is number => d !== null);
+
+  // Price distribution for sold
+  const soldPriceDistribution = PRICE_BUCKETS.map(bucket => ({
+    name: bucket.label,
+    count: soldPrices.filter(p => p >= bucket.min && p < bucket.max).length,
+  })).filter(b => b.count > 0);
+
+  // Monthly trends
+  const byMonth: Record<string, ListingSummary[]> = {};
+  for (const l of listings) {
+    if (!l.closeDate) continue;
+    const month = l.closeDate.substring(0, 7);
+    if (!byMonth[month]) byMonth[month] = [];
+    byMonth[month].push(l);
+  }
+
+  const monthlyTrends = Object.entries(byMonth)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, items]) => {
+      const prices = items
+        .map(l => l.closePrice > 0 ? l.closePrice : l.price)
+        .filter(p => p > 0)
+        .sort((a, b) => a - b);
+      const sqftPrices = items
+        .filter(l => (l.closePrice || l.price) > 0 && l.sqft > 0)
+        .map(l => (l.closePrice > 0 ? l.closePrice : l.price) / l.sqft);
+      return {
+        month,
+        count: items.length,
+        medianPrice: median(prices),
+        avgPriceSqft: Math.round(avg(sqftPrices)),
+      };
+    });
+
+  // Absorption rate: months of inventory = active / (sold per month)
+  let absorptionRate: number | null = null;
+  if (totalActiveCount > 0 && monthlyTrends.length > 0) {
+    const avgSoldPerMonth = totalSoldCount / Math.max(monthlyTrends.length, 1);
+    absorptionRate = avgSoldPerMonth > 0 ? Math.round((totalActiveCount / avgSoldPerMonth) * 10) / 10 : null;
+  }
+
+  return {
+    totalSold: totalSoldCount,
+    medianSoldPrice: median(soldPrices),
+    avgSoldPriceSqft: Math.round(avg(soldPriceSqfts)),
+    avgSoldToListRatio: soldToListRatios.length > 0 ? Math.round(avg(soldToListRatios) * 1000) / 10 : 0,
+    avgDaysToClose: Math.round(avg(daysToClose)),
+    absorptionRate,
+    soldPriceDistribution,
+    monthlyTrends,
+  };
+}
+
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -159,6 +246,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 export default function ListingsPage() {
   const [listings, setListings] = useState<ListingSummary[]>([]);
   const [stats, setStats] = useState<MarketStats | null>(null);
+  const [closedStats, setClosedStats] = useState<ClosedStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stub, setStub] = useState(false);
@@ -173,35 +261,71 @@ export default function ListingsPage() {
     setLoading(true);
     setError(null);
     setHasSearched(true);
-    try {
-      const res = await fetch('/api/listings/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: {
-            filters: {
-              listingStatus: ['active'],
-              listingCategory: ['sale'],
-              ...(city.trim() ? { city: city.trim() } : {}),
-              ...(state.trim() ? { stateProv: state.trim().toUpperCase() } : {}),
-            },
-          },
-          sort: { sortField: 'price', sortOrder: 'desc' },
-          pagination: { max: 100, offset: 0 },
-        }),
-      });
-      const json = await res.json();
-      if (json.stub) { setStub(true); return; }
-      if (!res.ok) throw new Error(json?.error?.message || 'Failed to fetch listings');
+    setClosedStats(null);
 
-      const mapped = (json.results || []).map((l: ULSListing) => toListingSummary(l));
+    const locationFilters = {
+      ...(city.trim() ? { city: city.trim() } : {}),
+      ...(state.trim() ? { stateProv: state.trim().toUpperCase() } : {}),
+    };
+
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    try {
+      // Fetch active + closed sales in parallel
+      const [activeRes, soldRes] = await Promise.all([
+        fetch('/api/listings/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: {
+              filters: { listingStatus: ['active'], listingCategory: ['sale'], ...locationFilters },
+            },
+            sort: { sortField: 'listingUpdateDate', sortOrder: 'desc' },
+            pagination: { max: 100, offset: 0 },
+          }),
+        }),
+        fetch('/api/listings/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: {
+              filters: {
+                listingStatusGranular: ['sold', 'closed'],
+                listingCategory: ['sold'],
+                closeDate: { min: ninetyDaysAgo },
+                ...locationFilters,
+              },
+            },
+            sort: { sortField: 'closeDate', sortOrder: 'desc' },
+            pagination: { max: 100, offset: 0 },
+          }),
+        }).catch(() => null),
+      ]);
+
+      const activeJson = await activeRes.json();
+      if (activeJson.stub) { setStub(true); return; }
+      if (!activeRes.ok) throw new Error(activeJson?.error?.message || 'Failed to fetch listings');
+
+      const mapped = (activeJson.results || []).map((l: ULSListing) => toListingSummary(l));
       setListings(mapped);
 
-      const totalCount = typeof json.pagination?.total === 'object'
-        ? json.pagination.total.value
-        : json.pagination?.total || mapped.length;
+      const totalActiveCount = typeof activeJson.pagination?.total === 'object'
+        ? activeJson.pagination.total.value
+        : activeJson.pagination?.total || mapped.length;
 
-      setStats(computeStats(mapped, totalCount));
+      setStats(computeStats(mapped, totalActiveCount));
+
+      // Process closed sales
+      if (soldRes && soldRes.ok) {
+        const soldJson = await soldRes.json();
+        if (soldJson.results && soldJson.results.length > 0) {
+          const soldMapped = (soldJson.results || []).map((l: ULSListing) => toListingSummary(l));
+          const totalSoldCount = typeof soldJson.pagination?.total === 'object'
+            ? soldJson.pagination.total.value
+            : soldJson.pagination?.total || soldMapped.length;
+          setClosedStats(computeClosedStats(soldMapped, totalSoldCount, totalActiveCount));
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load listings');
     } finally {
@@ -270,7 +394,7 @@ export default function ListingsPage() {
         {/* Quick Stats Sidebar */}
         {stats && (
           <div className="flex-1 overflow-y-auto px-4 py-4">
-            <div className="font-mono text-xs text-white/30 uppercase tracking-widest mb-3">Market Summary</div>
+            <div className="font-mono text-xs text-white/30 uppercase tracking-widest mb-3">Active Market</div>
             {[
               { label: 'Active Listings', value: stats.totalActive.toLocaleString() },
               { label: 'Median Price', value: `$${stats.medianPrice.toLocaleString()}` },
@@ -285,6 +409,25 @@ export default function ListingsPage() {
                 <span className="font-mono text-xs text-white/70">{item.value}</span>
               </div>
             ))}
+
+            {closedStats && (
+              <>
+                <div className="font-mono text-xs text-white/30 uppercase tracking-widest mt-4 mb-3">Closed Sales (90d)</div>
+                {[
+                  { label: 'Total Sold', value: closedStats.totalSold.toLocaleString() },
+                  { label: 'Median Sold', value: `$${closedStats.medianSoldPrice.toLocaleString()}` },
+                  { label: 'Sold $/sqft', value: `$${closedStats.avgSoldPriceSqft}` },
+                  { label: 'Sold/List Ratio', value: closedStats.avgSoldToListRatio > 0 ? `${closedStats.avgSoldToListRatio}%` : '—' },
+                  { label: 'Days to Close', value: closedStats.avgDaysToClose > 0 ? `${closedStats.avgDaysToClose}` : '—' },
+                  { label: 'Absorption', value: closedStats.absorptionRate !== null ? `${closedStats.absorptionRate} mo` : '—' },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between px-2 py-1.5 rounded text-white/50 hover:bg-white/5 transition-colors">
+                    <span className="text-xs">{item.label}</span>
+                    <span className="font-mono text-xs text-white/70">{item.value}</span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </aside>
@@ -484,6 +627,121 @@ export default function ListingsPage() {
                   )}
                 </div>
               </div>
+
+              {/* ═══ CLOSED SALES SECTION ═══ */}
+              {closedStats && (
+                <>
+                  {/* Section header */}
+                  <div className="flex items-center gap-3 mb-4 mt-2">
+                    <div className="h-px flex-1 bg-gray-200" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-5 bg-[#45B69C] rounded-full" />
+                      <span className="font-semibold text-sm text-gray-700">Closed Sales — Last 90 Days</span>
+                    </div>
+                    <div className="h-px flex-1 bg-gray-200" />
+                  </div>
+
+                  {/* Closed Sales Stats Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+                    <StatCard label="Total Sold" value={closedStats.totalSold.toLocaleString()} sub="last 90 days" />
+                    <StatCard label="Median Sold Price" value={`$${closedStats.medianSoldPrice.toLocaleString()}`} />
+                    <StatCard label="Avg Sold $/SqFt" value={`$${closedStats.avgSoldPriceSqft}`} />
+                    <StatCard
+                      label="Sold/List Ratio"
+                      value={closedStats.avgSoldToListRatio > 0 ? `${closedStats.avgSoldToListRatio}%` : '—'}
+                      sub={closedStats.avgSoldToListRatio > 100 ? 'sellers market' : closedStats.avgSoldToListRatio > 0 ? 'buyers market' : undefined}
+                    />
+                    <StatCard label="Avg Days to Close" value={closedStats.avgDaysToClose > 0 ? `${closedStats.avgDaysToClose}` : '—'} sub="days" />
+                    <StatCard
+                      label="Absorption Rate"
+                      value={closedStats.absorptionRate !== null ? `${closedStats.absorptionRate}` : '—'}
+                      sub={closedStats.absorptionRate !== null ? 'months of inventory' : undefined}
+                    />
+                  </div>
+
+                  {/* Closed Sales Charts */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+                    {/* Monthly Price Trends */}
+                    {closedStats.monthlyTrends.length > 1 && (
+                      <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5">
+                        <div className="font-semibold text-sm text-gray-900 mb-4">Sold Price Trends by Month</div>
+                        <ResponsiveContainer width="100%" height={260}>
+                          <LineChart data={closedStats.monthlyTrends} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#999' }} tickLine={false} axisLine={{ stroke: '#e5e5e5' }} />
+                            <YAxis
+                              yAxisId="price"
+                              tick={{ fontSize: 11, fill: '#999' }}
+                              axisLine={false}
+                              tickLine={false}
+                              tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`}
+                              width={65}
+                            />
+                            <YAxis
+                              yAxisId="count"
+                              orientation="right"
+                              tick={{ fontSize: 11, fill: '#999' }}
+                              axisLine={false}
+                              tickLine={false}
+                              width={40}
+                            />
+                            <Tooltip
+                              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                              formatter={(value, name) =>
+                                name === 'Median Price' ? `$${Number(value).toLocaleString()}` : value
+                              }
+                            />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Line yAxisId="price" type="monotone" dataKey="medianPrice" name="Median Price" stroke="#E8453C" strokeWidth={2} dot={{ r: 4 }} />
+                            <Line yAxisId="count" type="monotone" dataKey="count" name="Sales Count" stroke="#2D7DD2" strokeWidth={2} dot={{ r: 4 }} strokeDasharray="5 5" />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Sold Price Distribution */}
+                    {closedStats.soldPriceDistribution.length > 0 && (
+                      <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5">
+                        <div className="font-semibold text-sm text-gray-900 mb-4">Sold Price Distribution</div>
+                        <ResponsiveContainer width="100%" height={260}>
+                          <BarChart data={closedStats.soldPriceDistribution} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#999' }} tickLine={false} axisLine={{ stroke: '#e5e5e5' }} />
+                            <YAxis tick={{ fontSize: 11, fill: '#999' }} axisLine={false} tickLine={false} width={30} />
+                            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e5e5' }} />
+                            <Bar dataKey="count" name="Closed Sales" fill="#45B69C" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* $/SqFt Trend */}
+                    {closedStats.monthlyTrends.length > 1 && (
+                      <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5">
+                        <div className="font-semibold text-sm text-gray-900 mb-4">Sold $/SqFt Trend</div>
+                        <ResponsiveContainer width="100%" height={260}>
+                          <LineChart data={closedStats.monthlyTrends} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#999' }} tickLine={false} axisLine={{ stroke: '#e5e5e5' }} />
+                            <YAxis
+                              tick={{ fontSize: 11, fill: '#999' }}
+                              axisLine={false}
+                              tickLine={false}
+                              tickFormatter={(v) => `$${v}`}
+                              width={50}
+                            />
+                            <Tooltip
+                              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e5e5' }}
+                              formatter={(v) => `$${v}/sqft`}
+                            />
+                            <Line type="monotone" dataKey="avgPriceSqft" name="Avg $/SqFt" stroke="#F4A261" strokeWidth={2} dot={{ r: 4 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Top Listings Table */}
               {stats.topListings.length > 0 && (

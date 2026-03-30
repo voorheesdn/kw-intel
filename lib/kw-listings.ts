@@ -86,6 +86,7 @@ export interface ULSListing {
   description: string;
   financials: ULSFinancials;
   listDate: string;
+  closeDate: string;
   listStatus: ULSListStatus;
   listCategory: ULSListCategory;
   listType: string;
@@ -118,7 +119,8 @@ export interface ULSSearchResponse {
 // ─── Search Request Types ────────────────────────────────────────────────────
 
 export interface ULSSearchFilters {
-  listingStatus?: ULSListStatus[];
+  listingStatus?: ('active' | 'pending' | 'comingSoon')[];
+  listingStatusGranular?: ULSListStatus[];
   listingCategory?: ULSListCategory[];
   propertyType?: ULSPropertyType[];
   propertySubtype?: ULSPropertySubtype[];
@@ -133,6 +135,7 @@ export interface ULSSearchFilters {
   kwAgent?: boolean;
   maxListingAgeInDays?: number;
   mustHavePhotos?: boolean;
+  closeDate?: { min?: string; max?: string };
 }
 
 export interface ULSSearchRequest {
@@ -167,6 +170,9 @@ export interface ListingSummary {
   state: string;
   zip: string;
   price: number;
+  originalListPrice: number;
+  closePrice: number;
+  closeDate: string;
   beds: number;
   baths: number;
   sqft: number;
@@ -188,6 +194,9 @@ export function toListingSummary(l: ULSListing): ListingSummary {
     state: l.address?.state || '',
     zip: l.address?.postalCode || '',
     price: l.financials?.currentListPrice || 0,
+    originalListPrice: l.financials?.originalListPrice || 0,
+    closePrice: l.financials?.closePrice || 0,
+    closeDate: l.closeDate || '',
     beds: l.property?.totalBed || 0,
     baths: l.property?.totalBath || 0,
     sqft: l.property?.livingArea?.value || 0,
