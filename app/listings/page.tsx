@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { IconSearch, IconBarChart, IconHome, IconLoader } from '@/components/ui/Icons';
 import type { ULSListing } from '@/lib/kw-listings';
 import { toListingSummary } from '@/lib/kw-listings';
@@ -176,6 +176,9 @@ export default function ListingsPage() {
     }
   }, [city, state]);
 
+  // Auto-load on mount
+  useEffect(() => { search(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* ── Sidebar ── */}
@@ -268,7 +271,7 @@ export default function ListingsPage() {
             )}
 
             <div className="mt-4 px-2 py-2 rounded bg-white/5 text-white/30 text-xs font-mono">
-              Data cached for 1 hour
+              Updated nightly at 12:01 AM
             </div>
           </div>
         )}
@@ -289,13 +292,9 @@ export default function ListingsPage() {
               </p>
             </div>
             {activeStats && (
-              <button
-                onClick={search}
-                disabled={loading}
-                className="px-4 py-2 bg-gray-100 text-gray-700 text-xs font-mono rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
-              >
-                Refresh
-              </button>
+              <span className="font-mono text-xs text-gray-300">
+                Updated nightly at 12:01 AM
+              </span>
             )}
           </div>
         </div>
@@ -414,7 +413,7 @@ export default function ListingsPage() {
               <div className="text-center text-xs font-mono text-gray-300 mt-8">
                 Based on {activeStats.analyzed.toLocaleString()} active
                 {closedStats ? ` and ${closedStats.analyzed.toLocaleString()} closed` : ''} listings
-                from KW Unified Listing Service · Cached for 1 hour
+                from KW Unified Listing Service · Updated nightly
               </div>
             </>
           )}

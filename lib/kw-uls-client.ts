@@ -70,10 +70,10 @@ export async function searchListings(searchBody: ULSSearchRequest): Promise<ULSS
   return res.json();
 }
 
-// ─── Results cache (1 hour TTL) ─────────────────────────────────────────────
+// ─── Results cache (24 hour TTL, refreshed nightly by cron) ─────────────────
 
 const resultsCache = new Map<string, { data: ULSSearchResponse; expiresAt: number }>();
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 function getCacheKey(body: ULSSearchRequest): string {
   return JSON.stringify(body);
