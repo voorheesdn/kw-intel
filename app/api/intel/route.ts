@@ -84,13 +84,29 @@ async function fetchFredContext(query: string): Promise<string | null> {
       const formatted = formatFredValue(latest.value, series);
       lines.push(`- ${series.label}: ${formatted} (as of ${latest.date})`);
 
+      // Rate series: show changes in basis points
+      const RATE_SERIES = ['MORTGAGE30US', 'MORTGAGE15US', 'DGS10', 'FEDFUNDS', 'UNRATE'];
+      const isRate = RATE_SERIES.includes(result.seriesId);
+
       if (valid.length >= 2) {
         const prev = valid[1];
-        lines.push(`  Previous: ${formatFredValue(prev.value, series)} (${prev.date})`);
+        if (isRate) {
+          const bpChange = Math.round((parseFloat(latest.value) - parseFloat(prev.value)) * 100);
+          const sign = bpChange >= 0 ? '+' : '';
+          lines.push(`  Previous: ${formatFredValue(prev.value, series)} (${prev.date}) | Change: ${sign}${bpChange}bp`);
+        } else {
+          lines.push(`  Previous: ${formatFredValue(prev.value, series)} (${prev.date})`);
+        }
       }
       if (valid.length >= 6) {
         const oldest = valid[valid.length - 1];
-        lines.push(`  ~${valid.length} periods ago: ${formatFredValue(oldest.value, series)} (${oldest.date})`);
+        if (isRate) {
+          const bpChange = Math.round((parseFloat(latest.value) - parseFloat(oldest.value)) * 100);
+          const sign = bpChange >= 0 ? '+' : '';
+          lines.push(`  ~${valid.length} periods ago: ${formatFredValue(oldest.value, series)} (${oldest.date}) | Change: ${sign}${bpChange}bp`);
+        } else {
+          lines.push(`  ~${valid.length} periods ago: ${formatFredValue(oldest.value, series)} (${oldest.date})`);
+        }
       }
     }
 

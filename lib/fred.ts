@@ -83,16 +83,35 @@ export function formatFredValue(value: string | number, series: FredSeries): str
   }
 }
 
-export function computeChange(observations: FredObservation[]): { change: number; direction: 'up' | 'down' | 'flat' } | null {
+// Series where changes should be expressed in basis points (bp) instead of %
+const BP_SERIES = new Set(['MORTGAGE30US', 'MORTGAGE15US', 'DGS10', 'FEDFUNDS', 'UNRATE', 'MDSP', 'TDSP']);
+
+export function computeChange(observations: FredObservation[], seriesId?: string): { change: number; direction: 'up' | 'down' | 'flat'; unit: 'bp' | 'pct' } | null {
   const valid = observations.filter(o => o.value !== '.');
   if (valid.length < 2) return null;
   const current = parseFloat(valid[0].value);
   const previous = parseFloat(valid[1].value);
-  if (isNaN(current) || isNaN(previous) || previous === 0) return null;
-  const change = ((current - previous) / Math.abs(previous)) * 100;
+  if (isNaN(current) || isNaN(previous)) return null;
+
+  const useBp = seriesId ? BP_SERIES.has(seriesId) : false;
+
+  if (useBp) {
+    // Basis points: (current - previous) * 100
+    const bpChange = Math.round((current - previous) * 100);
+    return {
+      change: bpChange,
+      direction: bpChange === 0 ? 'flat' : bpChange > 0 ? 'up' : 'down',
+      unit: 'bp',
+    };
+  }
+
+  // Percentage change for non-rate series
+  if (previous === 0) return null;
+  const pctChange = ((current - previous) / Math.abs(previous)) * 100;
   return {
-    change,
-    direction: Math.abs(change) < 0.01 ? 'flat' : change > 0 ? 'up' : 'down',
+    change: pctChange,
+    direction: Math.abs(pctChange) < 0.01 ? 'flat' : pctChange > 0 ? 'up' : 'down',
+    unit: 'pct',
   };
 }
 

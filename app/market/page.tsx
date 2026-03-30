@@ -81,7 +81,7 @@ function MetricCard({ series, data }: { series: FredSeries; data: FredObservatio
 
   const valid = data.filter(o => o.value !== '.');
   const current = valid[0];
-  const change = computeChange(valid);
+  const change = computeChange(valid, series.id);
 
   return (
     <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-4">
@@ -96,7 +96,7 @@ function MetricCard({ series, data }: { series: FredSeries; data: FredObservatio
           <>
             <span className={`text-sm font-medium ${change.direction === 'up' ? 'text-red-500' : change.direction === 'down' ? 'text-teal-500' : 'text-gray-400'}`}>
               {change.direction === 'up' ? '\u25B2' : change.direction === 'down' ? '\u25BC' : '\u2014'}
-              {' '}{Math.abs(change.change).toFixed(1)}%
+              {' '}{change.unit === 'bp' ? `${Math.abs(change.change)}bp` : `${Math.abs(change.change).toFixed(1)}%`}
             </span>
           </>
         )}
