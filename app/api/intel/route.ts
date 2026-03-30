@@ -4,6 +4,7 @@ import type { FredObservation } from '@/lib/fred';
 import { searchListings, buildMarketSnapshot, formatSnapshotForAI, buildClosedSalesSnapshot, formatClosedSalesForAI } from '@/lib/kw-uls-client';
 import { detectLocation } from '@/lib/detect-location';
 import { fetchCompetitorContext } from '@/lib/sec-edgar';
+import { fetchTavilyContext } from '@/lib/tavily';
 
 // ─── FRED enrichment ─────────────────────────────────────────────────────────
 
@@ -156,20 +157,22 @@ export async function POST(request: NextRequest) {
   // Extract user query for enrichment
   const userMessage = body.messages?.[0]?.content || '';
 
-  // Fetch FRED + KW Listings + SEC EDGAR context in parallel
-  const [fredContext, listingsContext, competitorContext] = await Promise.all([
+  // Fetch all enrichment sources in parallel
+  const [fredContext, listingsContext, competitorContext, tavilyContext] = await Promise.all([
     fetchFredContext(userMessage),
     fetchListingsContext(userMessage),
     fetchCompetitorContext(userMessage),
+    fetchTavilyContext(userMessage),
   ]);
 
   // Inject enrichment data into the user message
   const enrichedMessages = body.messages ? [...body.messages] : [];
-  if ((fredContext || listingsContext || competitorContext) && enrichedMessages.length > 0) {
+  if ((fredContext || listingsContext || competitorContext || tavilyContext) && enrichedMessages.length > 0) {
     const contextParts: string[] = [];
     if (fredContext) contextParts.push(fredContext);
     if (listingsContext) contextParts.push(listingsContext);
     if (competitorContext) contextParts.push(competitorContext);
+    if (tavilyContext) contextParts.push(tavilyContext);
 
     enrichedMessages[0] = {
       ...enrichedMessages[0],
