@@ -33,7 +33,6 @@ export const FRED_SERIES: FredSeries[] = [
   { id: 'UMCSENT', label: 'Consumer Sentiment', shortLabel: 'Sentiment', category: 'economic', unit: 'Index', frequency: 'monthly', format: 'index' },
   { id: 'DSPIC96', label: 'Real Disposable Personal Income', shortLabel: 'Disp. Income', category: 'economic', unit: '$B', frequency: 'monthly', format: 'number' },
   // Affordability
-  { id: 'MDSP', label: 'Mortgage Debt Service as % of Disposable Income', shortLabel: 'Mortgage Burden', category: 'affordability', unit: '%', frequency: 'quarterly', format: 'percent' },
   { id: 'TDSP', label: 'Household Debt Service as % of Disposable Income', shortLabel: 'Debt Burden', category: 'affordability', unit: '%', frequency: 'quarterly', format: 'percent' },
 ];
 
@@ -135,7 +134,6 @@ const MARKET_KEYWORDS: Record<string, string[]> = {
   A191RL1Q225SBEA: ['gdp', 'gross domestic', 'economic growth', 'economy'],
   UMCSENT: ['consumer sentiment', 'confidence', 'sentiment'],
   DSPIC96: ['disposable income', 'personal income', 'income'],
-  MDSP: ['mortgage burden', 'debt service', 'affordability', 'mortgage payment'],
   TDSP: ['household debt', 'debt burden', 'debt service'],
 };
 

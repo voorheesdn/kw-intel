@@ -85,7 +85,7 @@ async function fetchFredContext(query: string): Promise<string | null> {
       lines.push(`- ${series.label}: ${formatted} (as of ${latest.date})`);
 
       // Rate series: show changes in basis points
-      const RATE_SERIES = ['MORTGAGE30US', 'MORTGAGE15US', 'DGS10', 'FEDFUNDS', 'UNRATE'];
+      const RATE_SERIES = ['MORTGAGE30US', 'MORTGAGE15US', 'DGS10', 'FEDFUNDS', 'UNRATE', 'TDSP'];
       const isRate = RATE_SERIES.includes(result.seriesId);
 
       if (valid.length >= 2) {
