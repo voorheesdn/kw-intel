@@ -12,9 +12,17 @@ function avg(arr: number[]): number {
   return arr.length === 0 ? 0 : arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
+function median(arr: number[]): number {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
 interface ActiveStats {
   totalActive: number;
   avgPrice: number;
+  medianPrice: number;
   avgDOM: number;
   kwListings: number;
   kwPercent: number;
@@ -24,6 +32,7 @@ interface ActiveStats {
 interface ClosedStats {
   totalSold: number;
   avgSoldPrice: number;
+  medianSoldPrice: number;
   avgDaysToClose: number;
   kwSold: number;
   kwSoldPercent: number;
@@ -42,6 +51,7 @@ function computeActiveStats(listings: ListingSummary[], totalCount: number): Act
   return {
     totalActive: totalCount,
     avgPrice: Math.round(avg(prices)),
+    medianPrice: Math.round(median(prices)),
     avgDOM: Math.round(avg(doms)),
     kwListings: kwCount,
     kwPercent: listings.length > 0 ? Math.round((kwCount / listings.length) * 100 * 10) / 10 : 0,
@@ -67,6 +77,7 @@ function computeClosedStats(listings: ListingSummary[], totalCount: number): Clo
   return {
     totalSold: totalCount,
     avgSoldPrice: Math.round(avg(soldPrices)),
+    medianSoldPrice: Math.round(median(soldPrices)),
     avgDaysToClose: Math.round(avg(daysToClose)),
     kwSold: kwCount,
     kwSoldPercent: listings.length > 0 ? Math.round((kwCount / listings.length) * 100 * 10) / 10 : 0,
@@ -244,7 +255,7 @@ export default function ListingsPage() {
             <div className="font-mono text-xs text-white/30 uppercase tracking-widest mb-3">Active Market</div>
             {[
               { label: 'Total Active', value: activeStats.totalActive.toLocaleString() },
-              { label: 'Avg List Price', value: `$${activeStats.avgPrice.toLocaleString()}` },
+              { label: 'Median Price', value: `$${activeStats.medianPrice.toLocaleString()}` },
               { label: 'Avg DOM', value: `${activeStats.avgDOM} days` },
               { label: 'KW Share', value: `${activeStats.kwPercent}% (${activeStats.kwListings.toLocaleString()})` },
             ].map(item => (
@@ -259,7 +270,7 @@ export default function ListingsPage() {
                 <div className="font-mono text-xs text-white/30 uppercase tracking-widest mt-4 mb-3">Closed Sales (90d)</div>
                 {[
                   { label: 'Total Sold', value: closedStats.totalSold.toLocaleString() },
-                  { label: 'Avg Sold Price', value: `$${closedStats.avgSoldPrice.toLocaleString()}` },
+                  { label: 'Median Sold', value: `$${closedStats.medianSoldPrice.toLocaleString()}` },
                   { label: 'Avg Days to Close', value: `${closedStats.avgDaysToClose}` },
                   { label: 'KW Share', value: `${closedStats.kwSoldPercent}% (${closedStats.kwSold.toLocaleString()})` },
                 ].map(item => (
@@ -360,8 +371,9 @@ export default function ListingsPage() {
                   value={activeStats.totalActive.toLocaleString()}
                 />
                 <BigStat
-                  label="Avg List Price"
-                  value={`$${activeStats.avgPrice.toLocaleString()}`}
+                  label="Median List Price"
+                  value={`$${activeStats.medianPrice.toLocaleString()}`}
+                  sub={`Avg: $${activeStats.avgPrice.toLocaleString()}`}
                 />
                 <BigStat
                   label="Avg Days on Market"
@@ -392,8 +404,9 @@ export default function ListingsPage() {
                       sub="last 90 days"
                     />
                     <BigStat
-                      label="Avg Sold Price"
-                      value={`$${closedStats.avgSoldPrice.toLocaleString()}`}
+                      label="Median Sold Price"
+                      value={`$${closedStats.medianSoldPrice.toLocaleString()}`}
+                      sub={`Avg: $${closedStats.avgSoldPrice.toLocaleString()}`}
                     />
                     <BigStat
                       label="Avg Days to Close"
