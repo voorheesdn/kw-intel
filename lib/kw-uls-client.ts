@@ -70,12 +70,27 @@ export async function searchListings(searchBody: ULSSearchRequest): Promise<ULSS
   return res.json();
 }
 
+// ─── Results cache (1 hour TTL) ─────────────────────────────────────────────
+
+const resultsCache = new Map<string, { data: ULSSearchResponse; expiresAt: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+function getCacheKey(body: ULSSearchRequest): string {
+  return JSON.stringify(body);
+}
+
 // ─── Paginated search (fetch ALL results) ───────────────────────────────────
 
 export async function searchAllListings(
   searchBody: ULSSearchRequest,
   maxPages = 50, // safety cap: 50 pages × 100 = 5,000 listings max
 ): Promise<ULSSearchResponse> {
+  // Check cache first
+  const cacheKey = getCacheKey(searchBody);
+  const cached = resultsCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
   // First page to get total count
   const firstPage = await searchListings({
     ...searchBody,
@@ -90,7 +105,9 @@ export async function searchAllListings(
 
   // If everything fit in one page, we're done
   if (allResults.length >= total || total <= 100) {
-    return { pagination: { ...firstPage.pagination, total }, results: allResults };
+    const result = { pagination: { ...firstPage.pagination, total }, results: allResults };
+    resultsCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL });
+    return result;
   }
 
   // Calculate remaining pages needed
@@ -119,10 +136,12 @@ export async function searchAllListings(
     }
   }
 
-  return {
+  const result: ULSSearchResponse = {
     pagination: { max: 100, total, offset: 0 },
     results: allResults,
   };
+  resultsCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL });
+  return result;
 }
 
 // ─── Market snapshot from listings ───────────────────────────────────────────
