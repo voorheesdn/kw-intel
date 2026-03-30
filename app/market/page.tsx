@@ -69,17 +69,17 @@ const CHART_COLORS = {
 
 // ─── Metric Card ──────────────────────────────────────────────────────────────
 
-function MetricCard({ series, data }: { series: FredSeries; data: FredObservation[] | undefined }) {
-  if (!data || data.length === 0) {
+function MetricCard({ series, data, loaded }: { series: FredSeries; data: FredObservation[] | undefined; loaded: boolean }) {
+  const valid = data?.filter(o => o.value !== '.') || [];
+  if (valid.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-4">
         <div className="font-mono text-xs text-gray-400 uppercase tracking-wider mb-1">{series.shortLabel}</div>
-        <div className="text-gray-300 text-lg">Loading...</div>
+        <div className="text-gray-300 text-lg">{loaded ? 'No data' : 'Loading...'}</div>
       </div>
     );
   }
 
-  const valid = data.filter(o => o.value !== '.');
   const current = valid[0];
   const change = computeChange(valid, series.id);
 
@@ -364,7 +364,7 @@ export default function MarketPage() {
                       <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">{cat.label}</div>
                       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                         {series.map(s => (
-                          <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} />
+                          <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} loaded={!loading} />
                         ))}
                       </div>
                     </div>
@@ -376,12 +376,12 @@ export default function MarketPage() {
                   <div className="font-mono text-xs text-gray-400 uppercase tracking-widest">Real Estate Trends</div>
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <ChartCard
-                      title="Mortgage Rates"
-                      seriesIds={['MORTGAGE30US', 'MORTGAGE15US']}
+                      title="Rates: 30Y Mortgage / 15Y Mortgage / 10Y Treasury"
+                      seriesIds={['MORTGAGE30US', 'MORTGAGE15US', 'DGS10']}
                       seriesMap={seriesMap}
                       range={range}
                       onRangeChange={setRange}
-                      colors={[CHART_COLORS.red, CHART_COLORS.amber]}
+                      colors={[CHART_COLORS.red, CHART_COLORS.amber, CHART_COLORS.blue]}
                     />
                     <ChartCard
                       title="Home Prices (Case-Shiller Index)"
@@ -401,11 +401,11 @@ export default function MarketPage() {
                     />
                     <ChartCard
                       title="Affordability"
-                      seriesIds={['MDSP', 'TDSP']}
+                      seriesIds={['TDSP']}
                       seriesMap={seriesMap}
                       range={range}
                       onRangeChange={setRange}
-                      colors={[CHART_COLORS.red, CHART_COLORS.blue]}
+                      colors={[CHART_COLORS.blue]}
                     />
                   </div>
                 </div>
@@ -426,7 +426,7 @@ export default function MarketPage() {
                       <div className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">Macro Indicators</div>
                       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                         {series.map(s => (
-                          <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} />
+                          <MetricCard key={s.id} series={s} data={seriesMap.get(s.id)} loaded={!loading} />
                         ))}
                       </div>
                     </div>
