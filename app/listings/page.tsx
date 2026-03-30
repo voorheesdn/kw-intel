@@ -271,23 +271,24 @@ export default function ListingsPage() {
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     try {
-      // Fetch active + closed sales in parallel
+      // Fetch ALL active + closed sales in parallel (paginated server-side)
       const [activeRes, soldRes] = await Promise.all([
         fetch('/api/listings/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            fetchAll: true,
             query: {
               filters: { listingStatus: ['active'], listingCategory: ['sale'], ...locationFilters },
             },
             sort: { sortField: 'listingUpdateDate', sortOrder: 'desc' },
-            pagination: { max: 100, offset: 0 },
           }),
         }),
         fetch('/api/listings/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            fetchAll: true,
             query: {
               filters: {
                 listingStatusGranular: ['sold', 'closed'],
@@ -297,7 +298,6 @@ export default function ListingsPage() {
               },
             },
             sort: { sortField: 'closeDate', sortOrder: 'desc' },
-            pagination: { max: 100, offset: 0 },
           }),
         }).catch(() => null),
       ]);
@@ -443,6 +443,7 @@ export default function ListingsPage() {
               </h1>
               <p className="font-mono text-xs text-gray-400 mt-0.5">
                 KW Unified Listing Service &middot; Real-time market analytics
+                {stats && ` · ${listings.length.toLocaleString()} active${closedStats ? ` + ${closedStats.totalSold.toLocaleString()} sold` : ''} analyzed`}
               </p>
             </div>
             {stats && (

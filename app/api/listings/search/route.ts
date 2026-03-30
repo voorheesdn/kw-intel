@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ULSSearchRequest, ULSSearchFilters } from '@/lib/kw-listings';
-import { searchListings } from '@/lib/kw-uls-client';
+import { searchListings, searchAllListings } from '@/lib/kw-uls-client';
 
 // ─── POST handler — proxies search to KW ULS ────────────────────────────────
 
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let searchBody: ULSSearchRequest;
+  let searchBody: ULSSearchRequest & { fetchAll?: boolean };
   try {
     searchBody = await request.json();
   } catch {
@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const data = await searchListings(searchBody);
+    const { fetchAll, ...apiBody } = searchBody;
+    const data = fetchAll
+      ? await searchAllListings(apiBody)
+      : await searchListings(apiBody);
 
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'private, s-maxage=300, stale-while-revalidate=600' },

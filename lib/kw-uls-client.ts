@@ -70,6 +70,61 @@ export async function searchListings(searchBody: ULSSearchRequest): Promise<ULSS
   return res.json();
 }
 
+// ─── Paginated search (fetch ALL results) ───────────────────────────────────
+
+export async function searchAllListings(
+  searchBody: ULSSearchRequest,
+  maxPages = 50, // safety cap: 50 pages × 100 = 5,000 listings max
+): Promise<ULSSearchResponse> {
+  // First page to get total count
+  const firstPage = await searchListings({
+    ...searchBody,
+    pagination: { max: 100, offset: 0 },
+  });
+
+  const total = typeof firstPage.pagination?.total === 'object'
+    ? (firstPage.pagination.total as { value: number }).value
+    : (firstPage.pagination?.total as number) || firstPage.results?.length || 0;
+
+  const allResults = [...(firstPage.results || [])];
+
+  // If everything fit in one page, we're done
+  if (allResults.length >= total || total <= 100) {
+    return { pagination: { ...firstPage.pagination, total }, results: allResults };
+  }
+
+  // Calculate remaining pages needed
+  const totalToFetch = Math.min(total, maxPages * 100);
+  const offsets: number[] = [];
+  for (let offset = 100; offset < totalToFetch; offset += 100) {
+    offsets.push(offset);
+  }
+
+  // Fetch remaining pages in parallel batches of 5
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < offsets.length; i += BATCH_SIZE) {
+    const batch = offsets.slice(i, i + BATCH_SIZE);
+    const pages = await Promise.all(
+      batch.map(offset =>
+        searchListings({
+          ...searchBody,
+          pagination: { max: 100, offset },
+        }).catch(() => null)
+      )
+    );
+    for (const page of pages) {
+      if (page?.results) {
+        allResults.push(...page.results);
+      }
+    }
+  }
+
+  return {
+    pagination: { max: 100, total, offset: 0 },
+    results: allResults,
+  };
+}
+
 // ─── Market snapshot from listings ───────────────────────────────────────────
 
 export interface LocalMarketSnapshot {
