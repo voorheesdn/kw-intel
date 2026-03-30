@@ -43,9 +43,12 @@ function computeActiveStats(listings: ListingSummary[], totalCount: number): Act
   const prices = listings.map(l => l.price).filter(p => p > 0);
   const kwCount = listings.filter(l => l.isKwListing).length;
 
+  // Cap DOM at 180 days — listings beyond that are overwhelmingly relists where
+  // the original listDate no longer reflects actual market time. MLS systems
+  // reset DOM on relist; the ULS API doesn't, so the cap is the best proxy.
   const doms = listings.filter(l => l.listDate).map(l => {
     const days = Math.floor((Date.now() - new Date(l.listDate).getTime()) / 86400000);
-    return days >= 0 && days < 3650 ? days : null;
+    return days >= 0 && days <= 180 ? days : null;
   }).filter((d): d is number => d !== null);
 
   return {
@@ -68,7 +71,7 @@ function computeClosedStats(listings: ListingSummary[], totalCount: number): Clo
     .filter(l => l.listDate && l.closeDate)
     .map(l => {
       const days = Math.floor((new Date(l.closeDate).getTime() - new Date(l.listDate).getTime()) / 86400000);
-      return days >= 0 && days < 730 ? days : null;
+      return days >= 0 && days <= 180 ? days : null;
     })
     .filter((d): d is number => d !== null);
 

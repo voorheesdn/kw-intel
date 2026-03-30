@@ -186,7 +186,7 @@ export function buildMarketSnapshot(
       const now = Date.now();
       return Math.floor((now - listed) / (1000 * 60 * 60 * 24));
     })
-    .filter(d => d >= 0 && d < 3650);
+    .filter(d => d >= 0 && d <= 180);
 
   const propertyMix: Record<string, number> = {};
   for (const l of listings) {
@@ -303,7 +303,7 @@ export function buildClosedSalesSnapshot(
       const closed = new Date(l.closeDate).getTime();
       return Math.floor((closed - listed) / (1000 * 60 * 60 * 24));
     })
-    .filter(d => d >= 0 && d < 730);
+    .filter(d => d >= 0 && d <= 180);
 
   // Monthly trends — group sold listings by closeDate month
   const byMonth: Record<string, ULSListing[]> = {};
