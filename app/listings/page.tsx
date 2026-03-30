@@ -5,6 +5,7 @@ import { IconSearch, IconBarChart, IconHome, IconLoader } from '@/components/ui/
 import type { ULSListing } from '@/lib/kw-listings';
 import { toListingSummary } from '@/lib/kw-listings';
 import type { ListingSummary } from '@/lib/kw-listings';
+import { detectLocation } from '@/lib/detect-location';
 
 // ─── Stats helpers ───────────────────────────────────────────────────────────
 
@@ -113,8 +114,12 @@ export default function ListingsPage() {
   // Search filters
   const [city, setCity] = useState('Austin');
   const [state, setState] = useState('TX');
+  const [nlQuery, setNlQuery] = useState('');
+  const [nlError, setNlError] = useState<string | null>(null);
 
-  const search = useCallback(async () => {
+  const search = useCallback(async (overrideCity?: string, overrideState?: string) => {
+    const searchCity = overrideCity ?? city;
+    const searchState = overrideState ?? state;
     setLoading(true);
     setError(null);
     setHasSearched(true);
@@ -122,8 +127,8 @@ export default function ListingsPage() {
     setActiveStats(null);
 
     const locationFilters = {
-      ...(city.trim() ? { city: city.trim() } : {}),
-      ...(state.trim() ? { stateProv: state.trim().toUpperCase() } : {}),
+      ...(searchCity.trim() ? { city: searchCity.trim() } : {}),
+      ...(searchState.trim() ? { stateProv: searchState.trim().toUpperCase() } : {}),
     };
 
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -191,6 +196,19 @@ export default function ListingsPage() {
     }
   }, [city, state]);
 
+  const handleNlSearch = useCallback((query: string) => {
+    setNlError(null);
+    const location = detectLocation(query);
+    if (!location) {
+      setNlError('Could not detect a location. Try "KW market share in Miami" or "Denver, CO market".');
+      return;
+    }
+    setCity(location.city || '');
+    setState(location.state || '');
+    setNlQuery('');
+    search(location.city || '', location.state || '');
+  }, [search]);
+
   // Auto-load on mount
   useEffect(() => { search(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -244,7 +262,7 @@ export default function ListingsPage() {
             />
           </div>
           <button
-            onClick={search}
+            onClick={() => search()}
             disabled={loading}
             className="w-full px-4 py-2.5 bg-[#E8453C] text-white text-sm font-semibold rounded-lg hover:bg-[#d0382f] disabled:opacity-40 transition-colors"
           >
@@ -312,6 +330,35 @@ export default function ListingsPage() {
               </span>
             )}
           </div>
+        </div>
+
+        {/* Natural Language Search */}
+        <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+          <div className="relative max-w-2xl">
+            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-400">
+              <IconSearch />
+            </div>
+            <input
+              type="text"
+              value={nlQuery}
+              onChange={(e) => { setNlQuery(e.target.value); setNlError(null); }}
+              onKeyDown={(e) => e.key === 'Enter' && nlQuery.trim() && handleNlSearch(nlQuery)}
+              placeholder="Ask a question... e.g. &quot;What is the KW market share in Miami?&quot;"
+              className="w-full pl-9 pr-20 py-2.5 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E8453C]/30 focus:border-[#E8453C]"
+            />
+            {nlQuery.trim() && (
+              <button
+                onClick={() => handleNlSearch(nlQuery)}
+                disabled={loading}
+                className="absolute inset-y-1 right-1 px-3 bg-[#E8453C] text-white text-xs font-semibold rounded-md hover:bg-[#d0382f] disabled:opacity-40 transition-colors"
+              >
+                Search
+              </button>
+            )}
+          </div>
+          {nlError && (
+            <p className="text-xs text-red-500 mt-1.5">{nlError}</p>
+          )}
         </div>
 
         {/* Content */}
